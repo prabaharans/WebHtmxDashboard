@@ -2,7 +2,7 @@
 
 ## Overview
 
-This is a web-based task management application featuring a Kanban-style board interface. The application allows users to manage tasks and projects with drag-and-drop functionality, search capabilities, and form validation. It's built using modern web technologies with a focus on user experience and interactive features.
+This is a comprehensive web-based task management application built with PHP and HTMX. The application features a modern interface with real-time updates, Kanban-style boards, and full CRUD operations for tasks and projects. It uses SQLite for data storage and Node.js as the development server with full HTMX integration for dynamic user interactions.
 
 ## User Preferences
 

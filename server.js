@@ -139,7 +139,10 @@ function renderLayout(content, title = 'Task Manager') {
                 <div class="navbar-nav">
                     <div class="nav-item">
                         <form class="d-flex">
-                            <input class="form-control me-2" type="search" name="q" placeholder="Search tasks..." aria-label="Search">
+                            <input class="form-control me-2" type="search" name="q" placeholder="Search tasks..." aria-label="Search"
+                                   hx-get="/api/tasks/search" 
+                                   hx-target="#search-results" 
+                                   hx-trigger="keyup changed delay:500ms">
                         </form>
                     </div>
                 </div>
@@ -151,6 +154,9 @@ function renderLayout(content, title = 'Task Manager') {
     <main class="container mt-4">
         ${content}
     </main>
+    
+    <!-- Search Results Container -->
+    <div id="search-results" class="search-results"></div>
     
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -202,17 +208,26 @@ function renderTaskCard(task) {
                     
                     <div class="btn-group" role="group">
                         <button type="button" class="btn btn-sm btn-outline-secondary" 
-                                onclick="updateTaskStatus(${task.id}, 'todo')"
+                                hx-post="/api/tasks/${task.id}/status"
+                                hx-vals='{"status": "todo"}'
+                                hx-target="closest .task-card"
+                                hx-swap="outerHTML"
                                 title="Set to To Do">
                             <i class="fas fa-clipboard-list"></i>
                         </button>
                         <button type="button" class="btn btn-sm btn-outline-secondary" 
-                                onclick="updateTaskStatus(${task.id}, 'in_progress')"
+                                hx-post="/api/tasks/${task.id}/status"
+                                hx-vals='{"status": "in_progress"}'
+                                hx-target="closest .task-card"
+                                hx-swap="outerHTML"
                                 title="Set to In Progress">
                             <i class="fas fa-spinner"></i>
                         </button>
                         <button type="button" class="btn btn-sm btn-outline-secondary" 
-                                onclick="updateTaskStatus(${task.id}, 'done')"
+                                hx-post="/api/tasks/${task.id}/status"
+                                hx-vals='{"status": "done"}'
+                                hx-target="closest .task-card"
+                                hx-swap="outerHTML"
                                 title="Set to Done">
                             <i class="fas fa-check"></i>
                         </button>
@@ -279,7 +294,9 @@ app.get('/dashboard', (req, res) => {
                     </div>
 
                     <!-- Statistics Cards -->
-                    <div class="row mb-4">
+                    <div class="row mb-4" id="stats-cards" 
+                         hx-get="/api/dashboard/stats" 
+                         hx-trigger="load, every 30s">
                         <div class="col-md-3 mb-3">
                             <div class="card bg-primary text-white">
                                 <div class="card-body">
@@ -675,7 +692,7 @@ app.get('/projects', (req, res) => {
     });
 });
 
-// API endpoints for status updates
+// API endpoints for HTMX
 app.post('/api/tasks/:id/status', (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
@@ -686,7 +703,139 @@ app.post('/api/tasks/:id/status', (req, res) => {
             return res.status(500).json({ error: 'Database error' });
         }
         
-        res.json({ success: true });
+        // Get updated task data and return the rendered task card
+        db.get("SELECT t.*, p.name as project_name FROM tasks t LEFT JOIN projects p ON t.project_id = p.id WHERE t.id = ?", [id], (err, task) => {
+            if (err) {
+                console.error('Error getting updated task:', err);
+                return res.status(500).json({ error: 'Database error' });
+            }
+            
+            res.send(renderTaskCard(task));
+        });
+    });
+});
+
+app.get('/api/dashboard/stats', (req, res) => {
+    db.get(`
+        SELECT 
+            COUNT(*) as total_tasks,
+            SUM(CASE WHEN status = 'todo' THEN 1 ELSE 0 END) as todo_count,
+            SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) as in_progress_count,
+            SUM(CASE WHEN status = 'done' THEN 1 ELSE 0 END) as done_count,
+            SUM(CASE WHEN due_date < date('now') AND status != 'done' THEN 1 ELSE 0 END) as overdue_count
+        FROM tasks
+    `, (err, stats) => {
+        if (err) {
+            console.error('Error getting dashboard stats:', err);
+            return res.status(500).json({ error: 'Database error' });
+        }
+        
+        // Return HTML for stats cards
+        const statsHtml = `
+            <div class="col-md-3 mb-3">
+                <div class="card bg-primary text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h4>${stats.total_tasks}</h4>
+                                <p>Total Tasks</p>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="fas fa-tasks fa-2x"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3 mb-3">
+                <div class="card bg-warning text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h4>${stats.todo_count}</h4>
+                                <p>To Do</p>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="fas fa-clipboard-list fa-2x"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3 mb-3">
+                <div class="card bg-info text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h4>${stats.in_progress_count}</h4>
+                                <p>In Progress</p>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="fas fa-spinner fa-2x"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3 mb-3">
+                <div class="card bg-success text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h4>${stats.done_count}</h4>
+                                <p>Completed</p>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="fas fa-check-circle fa-2x"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        res.send(statsHtml);
+    });
+});
+
+app.get('/api/tasks/search', (req, res) => {
+    const { q } = req.query;
+    
+    if (!q || q.trim() === '') {
+        return res.send('');
+    }
+    
+    db.all(`
+        SELECT t.*, p.name as project_name 
+        FROM tasks t 
+        LEFT JOIN projects p ON t.project_id = p.id 
+        WHERE t.title LIKE ? OR t.description LIKE ?
+        ORDER BY t.created_at DESC
+    `, [`%${q}%`, `%${q}%`], (err, tasks) => {
+        if (err) {
+            console.error('Error searching tasks:', err);
+            return res.status(500).send('Search error');
+        }
+        
+        const searchResults = tasks.map(task => `
+            <div class="search-result-item p-2 border-bottom">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h6 class="mb-1">${task.title}</h6>
+                        <small class="text-muted">
+                            ${task.project_name ? `<i class="fas fa-folder"></i> ${task.project_name} | ` : ''}
+                            <span class="badge bg-${task.status === 'done' ? 'success' : (task.status === 'in_progress' ? 'info' : 'warning')}">${task.status.charAt(0).toUpperCase() + task.status.slice(1).replace('_', ' ')}</span>
+                        </small>
+                    </div>
+                    <a href="/tasks/${task.id}/edit" class="btn btn-sm btn-outline-primary">Edit</a>
+                </div>
+            </div>
+        `).join('');
+        
+        res.send(searchResults);
     });
 });
 

@@ -1,14 +1,13 @@
-// Task Manager Application JavaScript
+// Task Manager HTMX Application JavaScript
 
 // Initialize application when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
-    initializeApp();
+    initializeHTMXApp();
 });
 
-// Main application initialization
-function initializeApp() {
+// Main HTMX application initialization
+function initializeHTMXApp() {
     initializeKanban();
-    initializeSearch();
     initializeFormValidation();
     initializeTooltips();
     initializeModals();
@@ -46,68 +45,19 @@ function initializeKanban() {
 
 // Update task status via HTMX
 function updateTaskStatus(taskId, status) {
-    const formData = new FormData();
-    formData.append('status', status);
-    
-    fetch(`/tasks/${taskId}/status`, {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.text())
-    .then(html => {
-        // Update the task card with new content
-        const taskCard = document.querySelector(`[data-task-id="${taskId}"]`);
-        if (taskCard) {
-            taskCard.outerHTML = html;
-        }
-        
+    htmx.ajax('POST', `/api/tasks/${taskId}/status`, {
+        values: { status: status },
+        target: `[data-task-id="${taskId}"]`,
+        swap: 'outerHTML'
+    }).then(() => {
         showNotification('Task status updated successfully', 'success');
-    })
-    .catch(error => {
+    }).catch(error => {
         console.error('Error updating task status:', error);
         showNotification('Error updating task status', 'error');
     });
 }
 
-// Search functionality
-function initializeSearch() {
-    const searchInput = document.querySelector('input[name="q"]');
-    const searchResults = document.getElementById('search-results');
-    
-    if (searchInput && searchResults) {
-        let searchTimeout;
-        
-        searchInput.addEventListener('input', function() {
-            clearTimeout(searchTimeout);
-            const query = this.value.trim();
-            
-            if (query.length === 0) {
-                searchResults.innerHTML = '';
-                searchResults.style.display = 'none';
-                return;
-            }
-            
-            searchTimeout = setTimeout(() => {
-                fetch(`/tasks/search?q=${encodeURIComponent(query)}`)
-                    .then(response => response.text())
-                    .then(html => {
-                        searchResults.innerHTML = html;
-                        searchResults.style.display = html ? 'block' : 'none';
-                    })
-                    .catch(error => {
-                        console.error('Search error:', error);
-                    });
-            }, 300);
-        });
-        
-        // Hide search results when clicking outside
-        document.addEventListener('click', function(event) {
-            if (!searchInput.contains(event.target) && !searchResults.contains(event.target)) {
-                searchResults.style.display = 'none';
-            }
-        });
-    }
-}
+// HTMX search functionality is handled by hx-get attributes in HTML
 
 // Form validation
 function initializeFormValidation() {
@@ -231,17 +181,15 @@ function deleteProject(projectId) {
     }
 }
 
-// Auto-refresh dashboard stats
+// Auto-refresh dashboard stats using HTMX
 function refreshDashboardStats() {
     if (window.location.pathname === '/dashboard' || window.location.pathname === '/') {
-        fetch('/api/dashboard/stats')
-            .then(response => response.json())
-            .then(data => {
-                updateStatsCards(data);
-            })
-            .catch(error => {
-                console.error('Error refreshing stats:', error);
-            });
+        htmx.ajax('GET', '/api/dashboard/stats', {
+            target: '#stats-cards',
+            swap: 'innerHTML'
+        }).catch(error => {
+            console.error('Error refreshing stats:', error);
+        });
     }
 }
 
@@ -258,8 +206,7 @@ function updateStatsCards(stats) {
     });
 }
 
-// Auto-refresh every 30 seconds
-setInterval(refreshDashboardStats, 30000);
+// Auto-refresh is handled by HTMX hx-trigger="every 30s"
 
 // HTMX event handlers
 document.addEventListener('htmx:beforeRequest', function(event) {
