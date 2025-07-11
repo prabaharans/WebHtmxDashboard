@@ -1,0 +1,92 @@
+<?php
+class Database {
+    private $conn;
+    
+    public function __construct() {
+        $this->initializeDatabase();
+    }
+    
+    private function initializeDatabase() {
+        // Create database directory if it doesn't exist
+        $dbDir = dirname(DB_PATH);
+        if (!is_dir($dbDir)) {
+            mkdir($dbDir, 0755, true);
+        }
+        
+        // Create database file if it doesn't exist
+        $isNewDb = !file_exists(DB_PATH);
+        
+        try {
+            $this->conn = new PDO("sqlite:" . DB_PATH);
+            $this->conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            $this->conn->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+            
+            if ($isNewDb) {
+                $this->createTables();
+                $this->insertSampleData();
+            }
+        } catch(PDOException $e) {
+            echo "Connection error: " . $e->getMessage();
+        }
+    }
+    
+    private function createTables() {
+        $sql = "
+            CREATE TABLE IF NOT EXISTS projects (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name VARCHAR(255) NOT NULL,
+                description TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+            
+            CREATE TABLE IF NOT EXISTS tasks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title VARCHAR(255) NOT NULL,
+                description TEXT,
+                status VARCHAR(20) DEFAULT 'todo' CHECK (status IN ('todo', 'in_progress', 'done')),
+                priority VARCHAR(10) DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high')),
+                assigned_to VARCHAR(255),
+                project_id INTEGER,
+                due_date DATE,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL
+            );
+            
+            CREATE INDEX IF NOT EXISTS idx_status ON tasks(status);
+            CREATE INDEX IF NOT EXISTS idx_priority ON tasks(priority);
+            CREATE INDEX IF NOT EXISTS idx_project_id ON tasks(project_id);
+            CREATE INDEX IF NOT EXISTS idx_due_date ON tasks(due_date);
+            CREATE INDEX IF NOT EXISTS idx_assigned_to ON tasks(assigned_to);
+            CREATE INDEX IF NOT EXISTS idx_tasks_created_at ON tasks(created_at);
+            CREATE INDEX IF NOT EXISTS idx_tasks_updated_at ON tasks(updated_at);
+            CREATE INDEX IF NOT EXISTS idx_projects_created_at ON projects(created_at);
+        ";
+        
+        $this->conn->exec($sql);
+    }
+    
+    private function insertSampleData() {
+        $sql = "
+            INSERT INTO projects (name, description) VALUES
+            ('Website Redesign', 'Complete redesign of the company website with modern UI/UX'),
+            ('Mobile App Development', 'Develop a mobile application for iOS and Android platforms'),
+            ('Database Migration', 'Migrate existing database to new cloud infrastructure');
+            
+            INSERT INTO tasks (title, description, status, priority, assigned_to, project_id, due_date) VALUES
+            ('Design Homepage Mockup', 'Create initial mockup for the new homepage design', 'todo', 'high', 'john.doe@example.com', 1, '2025-07-20'),
+            ('Setup Development Environment', 'Configure development environment for mobile app', 'in_progress', 'medium', 'jane.smith@example.com', 2, '2025-07-15'),
+            ('Database Schema Design', 'Design new database schema for migration', 'done', 'high', 'bob.wilson@example.com', 3, '2025-07-10'),
+            ('User Authentication System', 'Implement user login and registration', 'todo', 'high', 'alice.johnson@example.com', 2, '2025-07-25'),
+            ('Content Management System', 'Develop CMS for website content', 'in_progress', 'medium', 'charlie.brown@example.com', 1, '2025-07-30');
+        ";
+        
+        $this->conn->exec($sql);
+    }
+    
+    public function getConnection() {
+        return $this->conn;
+    }
+}
+?>
