@@ -18,9 +18,17 @@ Preferred communication style: Simple, everyday language.
 - **Module Structure**: Modular JavaScript architecture with separate initialization functions
 
 ### Backend Architecture
-- **Server Technology**: Likely Node.js/Express or similar (inferred from HTMX usage)
+- **Server Technology**: Node.js/Express with SQLite database
 - **Template Engine**: Server-side rendering with dynamic content updates
 - **API Design**: RESTful endpoints handling task and project operations
+- **Database**: Dual database support (SQLite for development, PostgreSQL for production)
+
+### Database Architecture
+- **Primary Database**: SQLite (development) with PostgreSQL support (production)
+- **ORM/Query Builder**: Raw SQL with prepared statements
+- **Schema Management**: Database migrations system with version control
+- **Data Integrity**: Foreign key constraints, check constraints, and indexes
+- **Administration**: Web-based database admin interface with query execution
 
 ### Styling Strategy
 - **CSS Architecture**: Custom CSS with CSS custom properties (variables)
@@ -83,6 +91,12 @@ Preferred communication style: Simple, everyday language.
 ### CSS Framework
 - **Bootstrap**: Base styling and component library
 - **Custom CSS**: Application-specific styling and theming
+
+### Database Components
+- **SQLite**: Primary database for development with automatic schema creation
+- **PostgreSQL**: Production database support with environment-based configuration
+- **Database Administration**: Web-based admin interface for database management
+- **Migration System**: Version-controlled database schema management
 
 ## Deployment Strategy
 
